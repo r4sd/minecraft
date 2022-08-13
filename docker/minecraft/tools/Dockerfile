@@ -1,19 +1,23 @@
 FROM amazoncorretto:17
 
+VOLUME ["/data"]
+WORKDIR /data
+
 RUN yum -y install wget \
     screen
-
-WORKDIR /root
-
-RUN mkdir data
-# 1.18.1
-RUN wget https://launcher.mojang.com/v1/objects/125e5adf40c659fd3bce3e66e67a16bb49ecc1b9/server.jar
-
-COPY eula.txt /root/eula.txt
-COPY start.sh /root/start.sh
-
-RUN chmod +x /root/start.sh
 RUN yum clean all
 RUN rm -rf /var/cache/yum
 
-CMD [ "screen", "sh", "-c", "/root/start.sh"]
+# 1.19
+# RUN cd / && wget https://launcher.mojang.com/v1/objects/e00c4052dac1d59a1188b2aa9d5a87113aaf1122/server.jar
+
+# 1.19.2
+RUN cd / && wget https://piston-data.mojang.com/v1/objects/f69c284232d7c7580bd89a5a4931c3581eae1378/server.jar
+# RUN chmod +x /server.jar
+
+COPY eula.txt /eula.txt
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+
+CMD [ "screen", "/start.sh" ]
