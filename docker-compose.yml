@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  minecraft:
+    image: itzg/minecraft-server:latest
+    container_name: minecraft-server
+    restart: unless-stopped
+
+    ports:
+      - "25565:25565"
+
+    volumes:
+      - "./server:/data"
+      - "./backups:/backups"
+
+    environment:
+      # 基本設定
+      EULA: "TRUE"
+      TZ: "Asia/Tokyo"
+
+      # サーバータイプとバージョン
+      TYPE: "PAPER"
+      VERSION: "LATEST"
+
+      # メモリ設定（必要に応じて調整）
+      MEMORY: "4G"
+
+      # サーバー設定
+      DIFFICULTY: "normal"
+      MODE: "survival"
+      MOTD: "Welcome to Minecraft Server!"
+      MAX_PLAYERS: 20
+      VIEW_DISTANCE: 10
+      LEVEL_TYPE: "minecraft:normal"
+
+      # パフォーマンス最適化
+      USE_AIKAR_FLAGS: "true"
+
+      # 自動停止機能（プレイヤー不在時にサーバー停止）
+      ENABLE_AUTOSTOP: "TRUE"
+      AUTOSTOP_TIMEOUT_EST: 3600  # 推定タイムアウト（秒）
+      AUTOSTOP_TIMEOUT_INIT: 1800  # 初期タイムアウト（秒）
+      AUTOSTOP_PERIOD: 10
+
+      # プラグイン自動ダウンロード（Spiget）
+      # ImageOnMap: 26585, DiscordSRV: 18494
+      SPIGET_RESOURCES: "26585,18494"
+
+      # バックアップ設定（後で追加予定）
+      # ENABLE_ROLLING_LOGS: "true"
+
+      # RCON有効化（管理用）
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: "${RCON_PASSWORD:-minecraft}"
+      RCON_PORT: 25575
+
+      # デバッグ（必要に応じて）
+      # DEBUG: "true"
+
+    # ヘルスチェック
+    healthcheck:
+      test: mc-health
+      start_period: 1m
+      interval: 30s
+      retries: 3
+      timeout: 10s
+
+    # リソース制限
+    deploy:
+      resources:
+        limits:
+          memory: 5G
+        reservations:
+          memory: 4G

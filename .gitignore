@@ -1,1 +1,21 @@
-nginx/
+# Minecraft Server Data
+server/
+*.jar
+*.log
+*.dat
+*.mca
+
+# Backups
+backups/
+*.tar.gz
+*.zip
+
+# Temporary files
+.DS_Store
+*.swp
+*~
+
+# Environment variables & Secrets
+.env
+secrets/
+*.secret
