@@ -1,0 +1,19 @@
+# Kustomization - Minecraft Kubernetes Manifests
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: minecraft
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - pvc.yaml
+  - statefulset.yaml
+  - service.yaml
+  - networkpolicy.yaml
+  - servicemonitor.yaml
+
+commonLabels:
+  app: minecraft
+  managed-by: kustomize

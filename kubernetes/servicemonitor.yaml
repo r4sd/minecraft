@@ -1,0 +1,22 @@
+# Prometheus ServiceMonitor（kube-prometheus-stack 連携）
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: minecraft-monitor
+  namespace: minecraft
+  labels:
+    app: minecraft
+    # kube-prometheus-stack の serviceMonitorSelector に合わせる
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: minecraft
+  namespaceSelector:
+    matchNames:
+      - minecraft
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scrapeTimeout: 10s
