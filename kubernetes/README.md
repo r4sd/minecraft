@@ -1,223 +1,194 @@
 # Minecraft Server (Kubernetes)
 
-Kubernetes で動かす Minecraft サーバー（Paper）
+Kubernetes で動かす Minecraft サーバー（Paper + Velocity）
 
-## 特徴
+## アーキテクチャ
 
-- **StatefulSet** - 安定した Pod 名でワールドデータを永続化
-- **mc-backup サイドカー** - 自動バックアップ（*.jar 等は除外）
-- **minecraft-exporter サイドカー** - Prometheus メトリクス収集
-- **NetworkPolicy** - セキュリティ強化
-- **Kustomize** - 環境別設定管理
+### Phase 2: マルチサーバー構成
+
+```
+              Players (Minecraft Client)
+                       │ :25565
+                       ▼
+            ┌─────────────────────┐
+            │   Velocity Proxy    │
+            │   LoadBalancer      │
+            └───┬─────────┬───────┘
+                │         │
+                ▼         ▼
+       ┌──────────┐  ┌──────────────────┐
+       │  Lobby   │  │    Survival      │
+       │  Paper   │  │    Paper         │
+       │ ClusterIP│  │   ClusterIP      │
+       │  512MB   │  │   4GB + sidecars │
+       └──────────┘  └──────────────────┘
+```
+
+- **Velocity Proxy**: プレイヤー接続を受け、バックエンドに振り分け
+- **Lobby**: シンプルハブ（看板クリックでサーバー移動）
+- **Survival**: フルスペック（プラグイン、バックアップ、監視付き）
+
+### Phase 1: シングルサーバー（レガシー）
+
+ルート直下の `*.yaml` ファイルが Phase 1 構成。Phase 2 移行後も参照用に残している。
+
+## ディレクトリ構成
+
+```
+kubernetes/
+├── # Phase 1（シングルサーバー）
+├── namespace.yaml
+├── configmap.yaml
+├── secret.yaml
+├── statefulset.yaml
+├── service.yaml
+├── pvc.yaml
+├── networkpolicy.yaml
+├── servicemonitor.yaml
+├── kustomization.yaml
+│
+├── # Phase 2（マルチサーバー）
+├── proxy/                    # Velocity Proxy
+│   ├── deployment.yaml
+│   ├── service.yaml          # LoadBalancer :25565
+│   ├── configmap.yaml        # velocity.toml
+│   └── secret.yaml           # forwarding secret
+│
+├── paper-base/               # Paper 共通テンプレート
+│   ├── statefulset.yaml
+│   ├── service.yaml          # ClusterIP
+│   ├── configmap.yaml        # 共通設定
+│   └── secret.yaml           # RCON パスワード
+│
+└── overlays/
+    ├── lobby/                # ロビー（軽量）
+    │   └── kustomization.yaml
+    └── survival/             # サバイバル（フルスペック）
+        ├── kustomization.yaml
+        ├── patch-survival.yaml
+        └── servicemonitor.yaml
+```
 
 ## 必要要件
 
 - Kubernetes クラスタ（v1.25+）
 - kubectl
 - kube-prometheus-stack（監視機能使用時）
-- 最低4GB RAM（推奨8GB以上）
 
-## クイックスタート
+## デプロイ（Phase 2）
 
-### 1. Secret のパスワードを変更
+### 1. Secret を変更
 
 ```bash
-# RCON パスワードを変更（必須）
-vim secret.yaml
+# Velocity forwarding secret を変更
+vim kubernetes/proxy/secret.yaml
+
+# Paper RCON パスワードを変更
+vim kubernetes/paper-base/secret.yaml
 ```
 
-### 2. デプロイ
+### 2. Namespace 作成
 
 ```bash
-kubectl apply -k .
+kubectl apply -f kubernetes/namespace.yaml
 ```
 
-### 3. 起動確認
+### 3. Proxy デプロイ
 
 ```bash
-# Pod 状態確認
+kubectl apply -k kubernetes/proxy/
+```
+
+### 4. Paper サーバーデプロイ
+
+```bash
+# ロビー
+kubectl apply -k kubernetes/overlays/lobby/
+
+# サバイバル
+kubectl apply -k kubernetes/overlays/survival/
+```
+
+### 5. 起動確認
+
+```bash
+# 全 Pod 状態確認
 kubectl -n minecraft get pods -w
 
-# ログ確認
-kubectl -n minecraft logs minecraft-0 -c minecraft -f
+# Velocity ログ
+kubectl -n minecraft logs deploy/velocity -f
 
-# "Done" メッセージが出たら起動完了
+# ロビーログ
+kubectl -n minecraft logs lobby-paper-0 -c paper -f
+
+# サバイバルログ
+kubectl -n minecraft logs survival-paper-0 -c paper -f
 ```
 
-### 4. 接続
+### 6. 接続
 
 ```bash
-# LoadBalancer IP を確認
-kubectl -n minecraft get svc minecraft
+# Velocity の LoadBalancer IP を確認
+kubectl -n minecraft get svc velocity
 
 # Minecraft クライアントから接続
 # サーバーアドレス: <EXTERNAL-IP>:25565
+# → 自動的にロビーに接続される
 ```
 
-## Manifest 構成
+## サーバー追加
 
-| ファイル | 説明 |
-|----------|------|
-| namespace.yaml | minecraft Namespace |
-| configmap.yaml | サーバー設定（非機密） |
-| secret.yaml | RCON パスワード等（機密） |
-| pvc.yaml | ワールドデータ + バックアップ用ストレージ |
-| statefulset.yaml | メインサーバー + サイドカー |
-| service.yaml | ゲーム接続用 + 内部用 Service |
-| networkpolicy.yaml | ネットワークアクセス制御 |
-| servicemonitor.yaml | Prometheus 監視設定 |
-| kustomization.yaml | Kustomize 設定 |
+クリエイティブ等のサーバーを追加する場合:
 
-## サイドカー構成
+```bash
+# 1. overlay を作成
+mkdir -p kubernetes/overlays/creative
 
-### mc-backup（バックアップ）
+# 2. kustomization.yaml を作成（lobby を参考に）
+# 3. velocity.toml にサーバーを追加
+# 4. デプロイ
+kubectl apply -k kubernetes/overlays/creative/
+```
+
+## サイドカー構成（サバイバルのみ）
+
+### mc-backup
 
 - 24時間ごとに自動バックアップ
 - 7日以上古いバックアップは自動削除
 - プレイヤー不在時のみバックアップ実行
-- **除外対象**: `*.jar`, `cache`, `logs`, `libraries`, `versions`
 
-### minecraft-exporter（監視）
+### minecraft-exporter
 
 - RCON 経由でサーバー情報取得
 - Prometheus メトリクス公開（ポート 9225）
-- プレイヤー数、TPS、メモリ使用量等
 
 ## 管理コマンド
 
-### サーバー操作
-
 ```bash
 # Pod 再起動
-kubectl -n minecraft rollout restart statefulset minecraft
+kubectl -n minecraft rollout restart statefulset lobby-paper
+kubectl -n minecraft rollout restart statefulset survival-paper
+kubectl -n minecraft rollout restart deploy velocity
 
-# RCON 接続
-kubectl -n minecraft exec -it minecraft-0 -c minecraft -- rcon-cli
+# RCON 接続（サバイバル）
+kubectl -n minecraft exec -it survival-paper-0 -c paper -- rcon-cli
 
-# シェル接続
-kubectl -n minecraft exec -it minecraft-0 -c minecraft -- bash
+# バックアップ確認
+kubectl -n minecraft logs survival-paper-0 -c mc-backup -f
 ```
 
-### ログ確認
+## CI
 
-```bash
-# メインサーバー
-kubectl -n minecraft logs minecraft-0 -c minecraft -f
+GitHub Actions で PR 時にマニフェスト検証を自動実行:
 
-# バックアップ
-kubectl -n minecraft logs minecraft-0 -c mc-backup -f
-
-# メトリクス
-kubectl -n minecraft logs minecraft-0 -c minecraft-exporter -f
-```
-
-### バックアップ確認
-
-```bash
-# バックアップ一覧
-kubectl -n minecraft exec minecraft-0 -c mc-backup -- ls -la /backups
-
-# 手動バックアップ
-kubectl -n minecraft exec minecraft-0 -c mc-backup -- backup now
-```
-
-## 設定変更
-
-### メモリ調整
-
-```bash
-# configmap.yaml の MEMORY を変更
-vim configmap.yaml
-
-# statefulset.yaml のリソース制限も調整
-vim statefulset.yaml
-
-# 適用
-kubectl apply -k .
-```
-
-### プラグイン追加
-
-```bash
-# configmap.yaml の SPIGET_RESOURCES を変更
-# 例: LuckPerms (28140) を追加
-SPIGET_RESOURCES: "26585,18494,28140"
-
-# 適用
-kubectl apply -k .
-
-# 再起動
-kubectl -n minecraft rollout restart statefulset minecraft
-```
-
-## 監視
-
-### Prometheus
-
-ServiceMonitor により自動で監視対象に追加されます。
-
-```bash
-# メトリクスエンドポイント確認
-kubectl -n minecraft port-forward svc/minecraft-internal 9225:9225
-curl localhost:9225/metrics
-```
-
-### 主要メトリクス
-
-- `minecraft_players_online` - オンラインプレイヤー数
-- `minecraft_players_max` - 最大プレイヤー数
-- `minecraft_tps` - サーバー TPS
-- `minecraft_jvm_memory_bytes_used` - JVM メモリ使用量
-
-## トラブルシューティング
-
-### Pod が起動しない
-
-```bash
-# イベント確認
-kubectl -n minecraft describe pod minecraft-0
-
-# PVC 状態確認
-kubectl -n minecraft get pvc
-```
-
-### メモリ不足
-
-```yaml
-# statefulset.yaml のリソース制限を調整
-resources:
-  requests:
-    memory: "2Gi"
-  limits:
-    memory: "3Gi"
-```
-
-### 接続できない
-
-```bash
-# Service 状態確認
-kubectl -n minecraft get svc
-
-# NetworkPolicy 確認
-kubectl -n minecraft get networkpolicy
-
-# ポートフォワードでテスト
-kubectl -n minecraft port-forward svc/minecraft 25565:25565
-```
-
-## 削除
-
-```bash
-# 全リソース削除（PVC 含む）
-kubectl delete -k .
-
-# Namespace のみ削除
-kubectl delete namespace minecraft
-```
+- `kustomize build`: 各 overlay のビルド検証
+- `kubeconform`: K8s スキーマ準拠チェック
 
 ## 参考リンク
 
 - [itzg/docker-minecraft-server](https://github.com/itzg/docker-minecraft-server)
 - [itzg/mc-backup](https://github.com/itzg/docker-mc-backup)
 - [minecraft-exporter](https://github.com/Joshi425/minecraft-exporter)
+- [Velocity Documentation](https://docs.papermc.io/velocity)
 - [Paper Documentation](https://docs.papermc.io/)

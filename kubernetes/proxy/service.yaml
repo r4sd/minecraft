@@ -1,0 +1,19 @@
+# Velocity Proxy Service（外部公開）
+# プレイヤーはこの LoadBalancer IP に接続する
+apiVersion: v1
+kind: Service
+metadata:
+  name: velocity
+  namespace: minecraft
+  labels:
+    app: velocity
+    component: proxy
+spec:
+  type: LoadBalancer
+  selector:
+    app: velocity
+  ports:
+    - name: minecraft
+      port: 25565
+      targetPort: 25565
+      protocol: TCP

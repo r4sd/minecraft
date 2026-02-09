@@ -1,0 +1,43 @@
+# サバイバルサーバー overlay
+# フルスペック: プラグイン、バックアップ、監視付き
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: minecraft
+namePrefix: survival-
+
+# app ラベルを survival に上書きして Service セレクタを分離
+labels:
+  - pairs:
+      app: survival
+    includeSelectors: true
+
+resources:
+  - ../../paper-base
+  - servicemonitor.yaml
+
+patches:
+  # サバイバル固有の設定
+  - target:
+      kind: ConfigMap
+      name: paper-config
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: paper-config
+      data:
+        MEMORY: "4G"
+        MODE: "survival"
+        MOTD: "Survival Server"
+        SPIGET_RESOURCES: "26585,18494"
+        ENABLE_AUTOSTOP: "TRUE"
+        AUTOSTOP_TIMEOUT_EST: "3600"
+        AUTOSTOP_TIMEOUT_INIT: "1800"
+        AUTOSTOP_PERIOD: "10"
+
+  # リソース拡大 + サイドカー追加
+  - target:
+      kind: StatefulSet
+      name: paper
+    path: patch-survival.yaml

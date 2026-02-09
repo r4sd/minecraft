@@ -1,0 +1,42 @@
+# Kubernetes マニフェスト検証
+# kustomize build + kubeconform でスキーマ検証
+name: Validate Manifests
+
+on:
+  pull_request:
+    paths:
+      - "kubernetes/**"
+  push:
+    branches:
+      - main
+    paths:
+      - "kubernetes/**"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup kubeconform
+        run: |
+          KUBECONFORM_VERSION="v0.6.7"
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar xz -C /usr/local/bin
+
+      - name: Validate proxy
+        run: |
+          echo "=== Proxy ==="
+          kubectl kustomize kubernetes/proxy/ | kubeconform -strict -summary
+
+      - name: Validate lobby overlay
+        run: |
+          echo "=== Lobby ==="
+          kubectl kustomize kubernetes/overlays/lobby/ | kubeconform -strict -summary
+
+      - name: Validate survival overlay
+        run: |
+          echo "=== Survival ==="
+          kubectl kustomize kubernetes/overlays/survival/ | kubeconform \
+            -strict \
+            -summary \
+            -skip ServiceMonitor

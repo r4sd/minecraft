@@ -1,0 +1,34 @@
+# Paper サーバー共通設定
+# overlay で MEMORY, MOTD, SPIGET_RESOURCES 等を上書きする
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: paper-config
+  namespace: minecraft
+data:
+  # 基本設定
+  EULA: "TRUE"
+  TZ: "Asia/Tokyo"
+
+  # サーバータイプ
+  TYPE: "PAPER"
+  VERSION: "LATEST"
+
+  # Velocity Proxy 経由のため認証は Velocity に委譲
+  ONLINE_MODE: "FALSE"
+
+  # パフォーマンス最適化
+  USE_AIKAR_FLAGS: "true"
+
+  # ゲーム共通設定
+  DIFFICULTY: "normal"
+  MAX_PLAYERS: "20"
+  VIEW_DISTANCE: "10"
+  LEVEL_TYPE: "minecraft:normal"
+
+  # RCON 管理（サイドカーから使用）
+  ENABLE_RCON: "true"
+  RCON_PORT: "25575"
+
+  # デフォルトメモリ（overlay で上書き）
+  MEMORY: "512m"

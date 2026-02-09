@@ -1,0 +1,11 @@
+# Velocity Proxy
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: minecraft
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - configmap.yaml
+  - secret.yaml
