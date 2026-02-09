@@ -4,11 +4,13 @@ Docker / Kubernetes 対応の Minecraft サーバー構成
 
 ## 特徴
 
-- **Paper Server** - 高性能、プラグイン対応
+- **Velocity + Paper マルチサーバー** - ロビー → サバイバル間のワールド移動
+- **Kustomize overlay** - 共通テンプレートから各サーバーを生成
 - **自動停止機能** - プレイヤー不在時に自動停止してリソース節約
 - **プラグイン自動導入** - ImageOnMap, DiscordSRV 等
 - **バックアップ対応** - mc-backup によるデータ保護
 - **監視対応** - Prometheus メトリクス収集（minecraft-exporter）
+- **CI** - kustomize build + kubeconform で自動検証
 
 ## デプロイ方法
 
@@ -27,19 +29,22 @@ docker compose up -d
 docker compose logs -f
 ```
 
-### Kubernetes
+### Kubernetes（マルチサーバー）
 
 ```bash
-cd kubernetes
-# Secret のパスワードを変更
-vim secret.yaml
+# Secret を変更
+vim kubernetes/proxy/secret.yaml       # forwarding secret
+vim kubernetes/paper-base/secret.yaml  # RCON パスワード
 
 # デプロイ
-kubectl apply -k .
+kubectl apply -f kubernetes/namespace.yaml
+kubectl apply -k kubernetes/proxy/
+kubectl apply -k kubernetes/overlays/lobby/
+kubectl apply -k kubernetes/overlays/survival/
 
 # 確認
 kubectl -n minecraft get pods -w
-kubectl -n minecraft logs minecraft-0 -f
+kubectl -n minecraft get svc velocity  # 接続先 IP
 ```
 
 ## 必要要件
@@ -60,27 +65,20 @@ kubectl -n minecraft logs minecraft-0 -f
 
 ```
 minecraft/
-├── README.md           # このファイル
-├── LICENSE
-├── .gitignore
-│
-├── docker/             # Docker Compose 構成
-│   ├── README.md
+├── README.md
+├── docker/                        # Docker Compose 構成
 │   ├── docker-compose.yml
-│   ├── .env.example
 │   └── scripts/
 │
-└── kubernetes/         # Kubernetes Manifest
-    ├── README.md
-    ├── kustomization.yaml
-    ├── namespace.yaml
-    ├── configmap.yaml
-    ├── secret.yaml
-    ├── pvc.yaml
-    ├── statefulset.yaml
-    ├── service.yaml
-    ├── networkpolicy.yaml
-    └── servicemonitor.yaml
+├── kubernetes/                    # Kubernetes Manifest
+│   ├── *.yaml                     # Phase 1（シングルサーバー）
+│   ├── proxy/                     # Velocity Proxy
+│   ├── paper-base/                # Paper 共通テンプレート
+│   └── overlays/
+│       ├── lobby/                 # ロビーサーバー
+│       └── survival/              # サバイバルサーバー
+│
+└── docs/plans/                    # 設計ドキュメント
 ```
 
 ## 参考リンク
@@ -95,6 +93,7 @@ minecraft/
 
 ## 履歴
 
+- 2026-02: Velocity + Paper マルチサーバー構成追加
 - 2025-02: Kubernetes 対応追加
 - 2025-01: itzg/minecraft-serverに移行
 - 2022-08: 初版（Amazon Corretto + 自作Dockerfile）
