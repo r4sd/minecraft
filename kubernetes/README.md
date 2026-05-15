@@ -20,7 +20,7 @@ Kubernetes で動かす Minecraft サーバー（Paper + Velocity）
        │  Lobby   │  │    Survival      │
        │  Paper   │  │    Paper         │
        │ ClusterIP│  │   ClusterIP      │
-       │  512MB   │  │   4GB + sidecars │
+       │ 512M-1Gi │  │ 4-5Gi + sidecars │
        └──────────┘  └──────────────────┘
 ```
 
@@ -49,23 +49,27 @@ kubernetes/
 │
 ├── # Phase 2（マルチサーバー）
 ├── proxy/                    # Velocity Proxy
-│   ├── deployment.yaml
+│   ├── deployment.yaml       # itzg/bungeecord (TYPE=VELOCITY) digest pin
 │   ├── service.yaml          # LoadBalancer :25565
 │   ├── configmap.yaml        # velocity.toml
-│   └── secret.yaml           # forwarding secret
+│   └── kustomization.yaml    # Secret は sealed-secrets/ 参照
 │
 ├── paper-base/               # Paper 共通テンプレート
-│   ├── statefulset.yaml
-│   ├── service.yaml          # ClusterIP
+│   ├── statefulset.yaml      # itzg/minecraft-server digest pin
+│   ├── service.yaml          # ClusterIP (25565 のみ; RCON は localhost)
 │   ├── configmap.yaml        # 共通設定
-│   └── secret.yaml           # RCON パスワード
+│   └── kustomization.yaml    # Secret は sealed-secrets/ 参照
+│
+├── sealed-secrets/           # SealedSecrets (homelab-infra と同じ方式)
+│   └── README.md             # kubeseal ワークフロー
 │
 └── overlays/
     ├── lobby/                # ロビー（軽量）
     │   └── kustomization.yaml
     └── survival/             # サバイバル（フルスペック）
         ├── kustomization.yaml
-        ├── patch-survival.yaml
+        ├── patch-survival.yaml   # サイドカー + リソース拡大
+        ├── patch-service.yaml    # metrics ポート (9225) 追加
         └── servicemonitor.yaml
 ```
 
@@ -74,23 +78,26 @@ kubernetes/
 - Kubernetes クラスタ（v1.25+）
 - kubectl
 - kube-prometheus-stack（監視機能使用時）
+- **Sealed Secrets コントローラ** (homelab-infra に既にインストール済)
+- `kubeseal` CLI (Secret 暗号化用、ローカル)
 
 ## デプロイ（Phase 2）
 
-### 1. Secret を変更
-
-```bash
-# Velocity forwarding secret を変更
-vim kubernetes/proxy/secret.yaml
-
-# Paper RCON パスワードを変更
-vim kubernetes/paper-base/secret.yaml
-```
-
-### 2. Namespace 作成
+### 1. Namespace 作成
 
 ```bash
 kubectl apply -f kubernetes/namespace.yaml
+```
+
+### 2. SealedSecrets を生成・適用
+
+平文 Secret はリポジトリに含めない。`kubeseal` で暗号化したマニフェストを `kubernetes/sealed-secrets/` 配下に生成して apply する。
+
+手順: [kubernetes/sealed-secrets/README.md](sealed-secrets/README.md) を参照。
+
+```bash
+# 暗号化済みマニフェストを apply
+kubectl apply -f kubernetes/sealed-secrets/
 ```
 
 ### 3. Proxy デプロイ
@@ -171,12 +178,26 @@ kubectl -n minecraft rollout restart statefulset lobby-paper
 kubectl -n minecraft rollout restart statefulset survival-paper
 kubectl -n minecraft rollout restart deploy velocity
 
-# RCON 接続（サバイバル）
+# RCON 接続（Service には載せていないので exec 経由）
 kubectl -n minecraft exec -it survival-paper-0 -c paper -- rcon-cli
 
 # バックアップ確認
 kubectl -n minecraft logs survival-paper-0 -c mc-backup -f
 ```
+
+## イメージ管理
+
+全コンテナイメージは `tag@sha256:digest` 形式で digest pin している。再現性確保と sup-chain 攻撃対策。
+
+| イメージ | 用途 |
+|----------|------|
+| `itzg/minecraft-server:java21@sha256:...` | Paper サーバー本体 |
+| `itzg/bungeecord:java21@sha256:...` | Velocity Proxy (TYPE=VELOCITY) |
+| `itzg/mc-backup:latest@sha256:...` | バックアップサイドカー |
+| `joshi425/minecraft-exporter:latest@sha256:...` | Prometheus exporter |
+| `busybox:1.36@sha256:...` | initContainer (Velocity forwarding 設定生成) |
+
+更新時は `crane digest <image>:<tag>` または Docker Hub の Tags ページで最新 digest を取得して置換。
 
 ## CI
 

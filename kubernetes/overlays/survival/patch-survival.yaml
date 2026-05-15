@@ -24,7 +24,7 @@ spec:
 
         # サイドカー: バックアップ
         - name: mc-backup
-          image: itzg/mc-backup:latest
+          image: itzg/mc-backup:latest@sha256:3ee78d8c49d70efc4dfc06d362051b5a028d4f28f2f0fe095e3cbccd29ab511d
           env:
             - name: BACKUP_INTERVAL
               value: "24h"
@@ -68,7 +68,7 @@ spec:
 
         # サイドカー: メトリクス収集
         - name: minecraft-exporter
-          image: joshi425/minecraft-exporter:latest
+          image: joshi425/minecraft-exporter:latest@sha256:6032af782b8a170111fb9df7673120a7e5dbf13652c15ae495d388d4a38013dd
           ports:
             - containerPort: 9225
               name: metrics

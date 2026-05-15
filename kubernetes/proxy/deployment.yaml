@@ -28,7 +28,7 @@ spec:
 
       containers:
         - name: velocity
-          image: itzg/bungeecord:java21
+          image: itzg/bungeecord:java21@sha256:5802281fc6f55a5b66773f74e8caae6e19b9de9093256fdde423ab2f534218ee
           env:
             - name: TYPE
               value: "VELOCITY"

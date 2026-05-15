@@ -31,13 +31,17 @@ docker compose logs -f
 
 ### Kubernetes（マルチサーバー）
 
-```bash
-# Secret を変更
-vim kubernetes/proxy/secret.yaml       # forwarding secret
-vim kubernetes/paper-base/secret.yaml  # RCON パスワード
+Secret は **SealedSecrets** で管理（平文をコミットしない）。詳細は [kubernetes/sealed-secrets/README.md](kubernetes/sealed-secrets/README.md)。
 
-# デプロイ
+```bash
+# Namespace
 kubectl apply -f kubernetes/namespace.yaml
+
+# Secret (kubeseal で暗号化済みマニフェストを生成・適用)
+# → kubernetes/sealed-secrets/README.md を参照
+kubectl apply -f kubernetes/sealed-secrets/
+
+# Proxy + Paper
 kubectl apply -k kubernetes/proxy/
 kubectl apply -k kubernetes/overlays/lobby/
 kubectl apply -k kubernetes/overlays/survival/
@@ -58,6 +62,8 @@ kubectl -n minecraft get svc velocity  # 接続先 IP
 **Kubernetes版:**
 
 - Kubernetes クラスタ + kubectl
+- Sealed Secrets コントローラ (homelab-infra 既設)
+- `kubeseal` CLI (Secret 暗号化用)
 - kube-prometheus-stack（監視機能使用時）
 - 最低4GB RAM（推奨8GB以上）
 
@@ -74,6 +80,7 @@ minecraft/
 │   ├── *.yaml                     # Phase 1（シングルサーバー）
 │   ├── proxy/                     # Velocity Proxy
 │   ├── paper-base/                # Paper 共通テンプレート
+│   ├── sealed-secrets/            # SealedSecrets (kubeseal で暗号化)
 │   └── overlays/
 │       ├── lobby/                 # ロビーサーバー
 │       └── survival/              # サバイバルサーバー
@@ -93,6 +100,7 @@ minecraft/
 
 ## 履歴
 
+- 2026-05: イメージ digest pin、RCON ポート非公開化、SealedSecrets 移行
 - 2026-02: Velocity + Paper マルチサーバー構成追加
 - 2025-02: Kubernetes 対応追加
 - 2025-01: itzg/minecraft-serverに移行

@@ -9,4 +9,6 @@ resources:
   - statefulset.yaml
   - service.yaml
   - configmap.yaml
-  - secret.yaml
+
+# Secret (paper-secrets) は kubernetes/sealed-secrets/ に SealedSecret として配置し
+# 別途 ArgoCD / kubectl apply で適用する。詳細は kubernetes/sealed-secrets/README.md。
