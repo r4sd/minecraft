@@ -1,0 +1,39 @@
+# Minecraft ゲーム接続用 Service（外部公開）
+apiVersion: v1
+kind: Service
+metadata:
+  name: minecraft
+  namespace: minecraft
+  labels:
+    app: minecraft
+spec:
+  type: LoadBalancer
+  selector:
+    app: minecraft
+  ports:
+    - name: minecraft
+      port: 25565
+      targetPort: 25565
+      protocol: TCP
+---
+# RCON・メトリクス用 Service（クラスタ内部のみ）
+apiVersion: v1
+kind: Service
+metadata:
+  name: minecraft-internal
+  namespace: minecraft
+  labels:
+    app: minecraft
+spec:
+  type: ClusterIP
+  selector:
+    app: minecraft
+  ports:
+    - name: rcon
+      port: 25575
+      targetPort: 25575
+      protocol: TCP
+    - name: metrics
+      port: 9225
+      targetPort: 9225
+      protocol: TCP

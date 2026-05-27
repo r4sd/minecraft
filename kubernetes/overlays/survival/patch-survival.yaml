@@ -1,0 +1,116 @@
+# サバイバルサーバー: リソース拡大 + バックアップ/監視サイドカー
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: paper
+spec:
+  template:
+    spec:
+      containers:
+        # メインコンテナのリソースを上書き
+        - name: paper
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "1000m"
+            limits:
+              memory: "5Gi"
+              cpu: "2000m"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: backups
+              mountPath: /backups
+
+        # サイドカー: バックアップ
+        - name: mc-backup
+          image: itzg/mc-backup:latest@sha256:3ee78d8c49d70efc4dfc06d362051b5a028d4f28f2f0fe095e3cbccd29ab511d
+          env:
+            - name: BACKUP_INTERVAL
+              value: "24h"
+            - name: PRUNE_BACKUPS_DAYS
+              value: "7"
+            - name: BACKUP_METHOD
+              value: "tar"
+            - name: COMPRESS_METHOD
+              value: "gzip"
+            - name: PAUSE_IF_NO_PLAYERS
+              value: "true"
+            - name: EXCLUDES
+              value: "*.jar,cache,logs,libraries,versions"
+            - name: RCON_HOST
+              value: "localhost"
+            - name: RCON_PORT
+              value: "25575"
+            - name: RCON_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: paper-secrets
+                  key: RCON_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /data
+              readOnly: true
+            - name: backups
+              mountPath: /backups
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+        # サイドカー: メトリクス収集
+        - name: minecraft-exporter
+          image: joshi425/minecraft-exporter:latest@sha256:6032af782b8a170111fb9df7673120a7e5dbf13652c15ae495d388d4a38013dd
+          ports:
+            - containerPort: 9225
+              name: metrics
+          env:
+            - name: MC_RCON_ADDRESS
+              value: "localhost:25575"
+            - name: MC_RCON_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: paper-secrets
+                  key: RCON_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /world
+              subPath: world
+              readOnly: true
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+  # PVC サイズ拡大 + バックアップ用 PVC 追加
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+    - metadata:
+        name: backups
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi

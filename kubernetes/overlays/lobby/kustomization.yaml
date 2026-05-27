@@ -1,0 +1,31 @@
+# ロビーサーバー overlay
+# シンプルハブ: 看板クリックでサーバー移動
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: minecraft
+namePrefix: lobby-
+
+# app ラベルを lobby に上書きして Service セレクタを分離
+labels:
+  - pairs:
+      app: lobby
+    includeSelectors: true
+
+resources:
+  - ../../paper-base
+
+patches:
+  # ロビー固有の設定を追加
+  - target:
+      kind: ConfigMap
+      name: paper-config
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: paper-config
+      data:
+        MEMORY: "512m"
+        MODE: "adventure"
+        MOTD: "Lobby"

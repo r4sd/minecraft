@@ -1,0 +1,46 @@
+# Minecraft サーバー NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: minecraft-network-policy
+  namespace: minecraft
+spec:
+  podSelector:
+    matchLabels:
+      app: minecraft
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Minecraft ゲーム接続（外部から）
+    - ports:
+        - protocol: TCP
+          port: 25565
+
+    # Prometheus メトリクス収集（monitoring namespace から）
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9225
+
+  egress:
+    # DNS 解決
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # HTTPS アクセス（プラグインダウンロード、Mojang API 等）
+    - ports:
+        - protocol: TCP
+          port: 443
+
+    # HTTP アクセス（一部のリソースダウンロード）
+    - ports:
+        - protocol: TCP
+          port: 80

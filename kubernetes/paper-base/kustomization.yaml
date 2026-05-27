@@ -1,0 +1,14 @@
+# Paper サーバー共通テンプレート
+# overlay (lobby, survival) から参照して使用する
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: minecraft
+
+resources:
+  - statefulset.yaml
+  - service.yaml
+  - configmap.yaml
+
+# Secret (paper-secrets) は kubernetes/sealed-secrets/ に SealedSecret として配置し
+# 別途 ArgoCD / kubectl apply で適用する。詳細は kubernetes/sealed-secrets/README.md。

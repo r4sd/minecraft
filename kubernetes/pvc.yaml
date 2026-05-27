@@ -1,0 +1,29 @@
+# Minecraft ワールドデータ用 PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minecraft-data
+  namespace: minecraft
+  labels:
+    app: minecraft
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+# バックアップ保存用 PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minecraft-backups
+  namespace: minecraft
+  labels:
+    app: minecraft
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi

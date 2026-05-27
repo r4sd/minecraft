@@ -1,0 +1,111 @@
+# Paper サーバー共通テンプレート
+# overlay の commonLabels と namePrefix で lobby/survival に分化する
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: paper
+  namespace: minecraft
+  labels:
+    app: paper
+    component: server
+spec:
+  serviceName: paper
+  replicas: 1
+  selector:
+    matchLabels:
+      app: paper
+  template:
+    metadata:
+      labels:
+        app: paper
+        component: server
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Velocity forwarding 設定を初期化
+      initContainers:
+        - name: setup-velocity-forwarding
+          image: busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /data/config
+              SECRET=$(cat /forwarding/forwarding.secret)
+              cat > /data/config/paper-global.yml << CONF
+              proxies:
+                velocity:
+                  enabled: true
+                  online-mode: true
+                  secret: "$SECRET"
+              CONF
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: forwarding-secret
+              mountPath: /forwarding
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+      containers:
+        - name: paper
+          image: itzg/minecraft-server:java21@sha256:2df0d41b3a2d94479369763ff2f6250ef0b9e7c71796f1ca4270ffb6e2ee3b18
+          ports:
+            - containerPort: 25565
+              name: minecraft
+            - containerPort: 25575
+              name: rcon
+          envFrom:
+            - configMapRef:
+                name: paper-config
+            - secretRef:
+                name: paper-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            exec:
+              command: ["mc-health"]
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["mc-health"]
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+      volumes:
+        - name: forwarding-secret
+          secret:
+            secretName: forwarding-secret
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

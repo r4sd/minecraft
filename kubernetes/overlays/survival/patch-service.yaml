@@ -1,0 +1,16 @@
+# サバイバルサーバー Service: メトリクスポート追加
+# exporter サイドカー (9225) を ServiceMonitor から scrape させるため
+apiVersion: v1
+kind: Service
+metadata:
+  name: paper
+spec:
+  ports:
+    - name: minecraft
+      port: 25565
+      targetPort: 25565
+      protocol: TCP
+    - name: metrics
+      port: 9225
+      targetPort: 9225
+      protocol: TCP

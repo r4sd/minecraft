@@ -1,0 +1,13 @@
+# Velocity Proxy
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: minecraft
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - configmap.yaml
+
+# Secret (forwarding-secret) は kubernetes/sealed-secrets/ に SealedSecret として配置し
+# 別途 ArgoCD / kubectl apply で適用する。詳細は kubernetes/sealed-secrets/README.md。

@@ -1,0 +1,57 @@
+# Velocity Proxy 設定
+# velocity.toml でバックエンドサーバーを定義
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: velocity-config
+  namespace: minecraft
+data:
+  velocity.toml: |
+    config-version = "2.7"
+
+    # バインドアドレス
+    bind = "0.0.0.0:25565"
+
+    # サーバーメッセージ
+    motd = "<#09add3>Minecraft Server"
+
+    show-max-players = 20
+
+    # Velocity がオンラインモード認証を行う
+    online-mode = true
+    force-key-login = true
+    prevent-client-proxy-connections = false
+
+    # Paper サーバーとの転送モード（modern 推奨）
+    player-info-forwarding-mode = "modern"
+
+    [servers]
+    # バックエンドサーバー（K8s Service 名で接続）
+    lobby = "lobby-paper:25565"
+    survival = "survival-paper:25565"
+
+    # 初回接続時にロビーへ振り分け
+    try = ["lobby"]
+
+    [forced-hosts]
+
+    [advanced]
+    compression-threshold = 256
+    compression-level = -1
+    login-ratelimit = 3000
+    connection-timeout = 5000
+    read-timeout = 30000
+    haproxy-protocol = false
+    tcp-fast-open = false
+    bungee-plugin-message-channel = true
+    show-ping-requests = false
+    failover-on-unexpected-server-disconnect = true
+    announce-proxy-commands = true
+    log-command-executions = false
+    log-player-connections = true
+
+    [query]
+    enabled = false
+    port = 25577
+    map = "Velocity"
+    show-plugins = false

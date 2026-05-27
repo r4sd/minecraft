@@ -1,0 +1,15 @@
+# サバイバルサーバー Prometheus 監視設定
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: paper-monitor
+  namespace: minecraft
+  labels:
+    app: survival
+spec:
+  selector:
+    matchLabels:
+      app: survival
+  endpoints:
+    - port: metrics
+      interval: 30s
