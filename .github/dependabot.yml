@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # GitHub Actions の依存更新 (週次)
+  # docker (minecraft-server / bungeecord イメージ) は本番ワークロードのため
+  # dependabot 対象にせず、イメージ更新は手動 (digest pin を意図的に管理) で行う。
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

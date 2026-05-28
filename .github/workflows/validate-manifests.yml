@@ -2,15 +2,15 @@
 # kustomize build + kubeconform でスキーマ検証
 name: Validate Manifests
 
+# paths フィルタは付けない: dependabot が .github/workflows/ を更新した PR でも
+# CI を走らせ、required status check (validate) が必ず実行されるようにするため
+# (paths で kubernetes/** に絞ると github-actions 更新 PR で CI が発火せず
+#  auto-merge が永久に BLOCK される)。
 on:
   pull_request:
-    paths:
-      - "kubernetes/**"
   push:
     branches:
       - main
-    paths:
-      - "kubernetes/**"
 
 jobs:
   validate:
